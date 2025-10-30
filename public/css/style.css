@@ -1,0 +1,638 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+:root {
+  --bg-main: #c9213a;
+  --bg-dark: #6b0c1a;
+  --text-primary: #ffffff;
+  --border-color: #b9b9b9;
+  --hover-bg: #1a1a1a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  background-color: var(--bg-main);
+}
+
+.left-sidebar {
+  position: fixed;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  border-right: 1px solid var(--border-color);
+  padding: 20px;
+  background-color: var(--bg-main);
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  width: 100%;
+}
+
+nav {
+  margin-top: 25px;
+}
+
+nav a {
+  text-decoration: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  margin: 12px 0;
+  padding: 12px 10px;
+  gap: 15px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+nav a i {
+  font-size: 1.3rem;
+}
+
+nav a:hover {
+  background-color: var(--hover-bg);
+  transform: translateX(5px);
+}
+
+.logout {
+  text-decoration: none;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  padding: 12px 10px;
+  font-size: 1.2rem;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.logout:hover {
+  background-color: var(--hover-bg);
+  color: #ff4d4d;
+  transform: translateX(5px);
+}
+
+.main-feed {
+  margin-left: 250px;
+  min-height: 100vh;
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.gallery-container {
+  background-color: var(--bg-dark);
+  border-radius: 20px;
+  padding: 30px 40px;
+  width: 80%;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.profile-header {
+  text-align: center;
+  position: relative;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 25px;
+}
+
+.profile-pic {
+  width: 80px;
+  height: 80px;
+  background-color: white;
+  border-radius: 50%;
+  margin: 0 auto 10px auto;
+}
+
+.user-name {
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-bottom: 0px;
+}
+
+.add-pic-btn {
+  position: absolute;
+  right: 40px;
+  top: 73%;
+  background-color: white;
+  color: var(--bg-main);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-pic-btn:hover {
+  background-color: #e04a5f;
+  color: white;
+  transform: scale(1.05);
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 25px;
+}
+
+.gallery-item {
+  background-color: white;
+  aspect-ratio: 1/1;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.4s ease, box-shadow 0.3s ease;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.gallery-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.gallery-item:hover img {
+  transform: scale(1.1);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 24px;
+}
+
+.overlay.is-open {
+  display: flex;
+}
+
+.overlay-content {
+  display: flex;
+  flex-direction: row;
+  background: #fff;
+  width: min(90vw, 900px);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.overlay-left {
+  flex: 1.2;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.overlay-left img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.overlay-right {
+  flex: 0.8;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #121212;
+  color: white;
+  padding: 20px;
+}
+
+.overlay-left img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 12px;
+  max-width: 700px; 
+  max-height: 700px;
+  margin: auto;
+  display: block;
+}
+
+.overlay-info h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.overlay-info .description {
+  font-size: 0.9rem;
+  color: #ccc;
+  line-height: 1.4;
+}
+
+.overlay-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: transparent;
+  padding: 10px 0;
+}
+
+#delete-btn {
+  background: #c9213a;
+  color: #fff;
+  border: 0;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+#delete-btn:hover {
+  background: #9a0f29;
+  transform: translateY(-1px);
+}
+
+@keyframes overlayIn {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.headlogo{
+  width: 500px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.confirm-overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.75);
+  display: none;
+  justify-content: center; align-items: center;
+  z-index: 10000; 
+}
+.confirm-overlay.is-open{ display:flex; }
+
+.confirm-box{
+  background: transparent;
+  text-align: center;
+  padding: 0 24px;
+}
+.confirm-box h2{
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(28px, 6vw, 72px);
+  letter-spacing: .5px;
+  margin-bottom: 28px;
+  text-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+.confirm-actions{
+  display:flex; gap: 28px; justify-content: center;
+}
+.btn-confirm, .btn-cancel{
+  border: none; color:#fff; font-weight: 800;
+  padding: 10px 22px; border-radius: 12px; cursor: pointer;
+  font-size: clamp(14px, 2vw, 18px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  transition: transform .1s ease, opacity .15s ease;
+}
+.btn-confirm{ background:#2e9d4f; } 
+.btn-cancel { background:#c9213a; }
+.btn-confirm:hover, .btn-cancel:hover{ transform: translateY(-1px); opacity:.95; }
+
+.likebutt{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: transparent;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.likebutt:hover{
+  background-color: var(--bg-main);
+  transform: translateX(5px);
+}
+
+.addpic-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.addpic-box {
+  background: #111;
+  color: white;
+  padding: 25px;
+  border-radius: 12px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.addpic-box h3 {
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.addpic-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 15px;
+  gap: 10px;
+}
+
+.addpic-actions button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#addpicCancel {
+  background: #c9213a;
+  color: white;
+}
+
+#addpicSubmit {
+  background: #2e9d4f;
+  color: white;
+}
+
+
+.header-actions{
+  position: absolute;
+  right: 40px;
+  top: 73%;
+}
+
+.sort-btn{
+  background-color: #fff;
+  color: var(--bg-main);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all .3s ease;
+}
+.sort-btn:hover{
+  background-color: #e04a5f;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+/* เมนูดรอปดาวน์ */
+.sort-menu{
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  background: #fff;
+  color: var(--bg-main);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  width: 220px;
+  padding: 12px 12px 10px;
+  display: none;
+  z-index: 10;
+}
+.sort-menu.open{ display: block; }
+
+.sort-title{
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.sort-item{
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  color: var(--bg-main);
+  cursor: pointer;
+}
+.sort-item:hover{
+  background: var(--bg-main);
+  color: #fff;
+}
+.sort-menu hr{
+  border: 0; border-top: 1px solid rgba(0,0,0,.08);
+  margin: 6px 0 8px;
+}
+.sort-item.is-active{
+  background: var(--bg-main);
+  color: #fff;
+}
+#closeBtn {
+  background-color: #555;        /* สีพื้นหลังเทาเข้ม */
+  color: white;                  /* ตัวอักษรสีขาว */
+  border: none;                  /* ไม่มีเส้นขอบ */
+  padding: 6px 14px;             /* ขนาดปุ่ม */
+  border-radius: 6px;            /* มุมโค้งมน */
+  cursor: pointer;               /* แสดงเป็นรูปมือเวลา hover */
+  transition: background-color 0.2s ease; /* ทำให้เวลา hover มีเอฟเฟกต์นุ่มนวล */
+}
+
+#closeBtn:hover {
+  background-color: #777;        /* เปลี่ยนสีเมื่อ hover */
+}
+
+#deleteBtn{
+  background-color: #e41212;       
+  color: white;                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+}
+
+#deleteBtn:hover {
+background-color: #6b0c1a;
+}
+
+#descSaveBtn ,#aboutSaveBtn{
+background-color: #00a334;       
+  color: rgb(253, 253, 253);                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+}
+
+#descSaveBtn:hover{
+  background-color: #00a33461;
+}
+
+
+
+
+#overlayClose {
+  background-color: #555;        /* สีพื้นหลังเทาเข้ม */
+  color: white;                  /* ตัวอักษรสีขาว */
+  border: none;                  /* ไม่มีเส้นขอบ */
+  padding: 6px 14px;             /* ขนาดปุ่ม */
+  border-radius: 6px;            /* มุมโค้งมน */
+  cursor: pointer;               /* แสดงเป็นรูปมือเวลา hover */
+  transition: background-color 0.2s ease; /* ทำให้เวลา hover มีเอฟเฟกต์นุ่มนวล */
+}
+
+#overlayClose:hover {
+  background-color: #777;        /* เปลี่ยนสีเมื่อ hover */
+}
+
+.overlay-comments {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #444;
+  color: #eee;
+}
+
+.overlay-comments h4 {
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.comment-item {
+  background: rgba(255,255,255,0.05);
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  display: flex;
+   align-items:center;  
+}
+
+#commentInput {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #555;
+  padding: 6px;
+  background: #222;
+  color: #fff;
+  resize: none;
+}
+
+#commentForm button {
+  margin-top: 6px;
+}
+
+
+.comment-item .comment-actions{
+  margin-left:auto;            /* ดันไปชิดขวา */
+  display:flex;
+  gap:8px;
+}
+#postBTN{
+  background-color: #e41277;       
+  color: white;                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+}
+
+#postBTN:hover {
+background-color: #6b0c1a;
+}
+
+
+
+#deletecomment{
+  background-color: #e41212;       
+  color: white;                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+  margin-top: 2px;
+  margin-left: 10px;
+  margin-right: auto;
+}
+
+#deletecomment:hover {
+background-color: #6b0c1a;
+}
+
+#editcomment{
+  background-color: #3b0be7;       
+  color: white;                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+  margin-top: 2px;
+  margin-right: auto;
+}
+
+#editcomment:hover {
+background-color: #1691e3;
+}
+
+.overlay-comments h4 { margin: 10px 0 8px; }
+.comment-item{
+  padding:6px 10px; margin-bottom:8px;
+  background:rgba(255,255,255,.06); border-radius:8px;
+}
+.comment-body{ color:#ddd; }
+.comment-text{ white-space:pre-wrap; }
+
+ #profCloseBtn{
+   background-color: #e84c4c;       
+  color: white;                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+  margin-top: 2px;
+  margin-left: 10px;
+  margin-right: auto;
+}
+#profCloseBtnt:hover {
+background-color: #f60101;
+}

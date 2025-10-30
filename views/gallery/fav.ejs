@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Favorite Gallery - Mind Gallery</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+</head>
+<body>
+  <!-- ถ้าเรนเดอร์ด้วย EJS จะได้ user id มาด้วย (ไม่มีก็เป็นค่าว่าง) -->
+  <script>
+    window.CURRENT_USER_ID =
+      "<%= (typeof user !== 'undefined' && user && user._id) ? String(user._id) : '' %>";
+  </script>
+
+  <main>
+    <aside class="left-sidebar">
+      <img src="/img/logo.png" class="logo" alt="Mind Gallery" />
+      <nav>
+        <a href="/gallery/my"><i class="fas fa-home"></i><span>Own Gallery</span></a>
+        <a href="/gallery/all"><i class="fas fa-globe"></i><span>All Gallery</span></a>
+        <a href="/gallery/fav" class="active"><i class="fas fa-heart"></i><span>Favorite</span></a>
+      </nav>
+      <a href="#" class="logout" id="logoutBtn"><i class="fas fa-sign-out"></i><span>Logout</span></a>
+    </aside>
+
+    <section class="main-feed">
+      <div class="gallery-container">
+        <div class="profile-header">
+          <img src="/img/logofavgal.png" class="headlogo" alt="Favorite Gallery Logo"/>
+        </div>
+
+        <div class="gallery-grid" id="grid">
+          <p style="text-align:center; color:#777;">กำลังโหลด...</p>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay" aria-hidden="true">
+          <div class="overlay-content">
+            <div class="overlay-left">
+              <img src="" alt="Preview" id="overlay-img"/>
+            </div>
+            <div class="overlay-right">
+              <div class="overlay-info">
+                <h3 id="overlay-username">@User</h3>
+                <p class="description" id="overlay-desc"></p>
+              </div>
+              <div class="overlay-footer">
+                <p id="overlay-likes">Like : 0</p>
+                <a class="likebutt" id="like-button">
+                  <i class="fas fa-heart"></i><span id="like-text">Like</span>
+                </a>
+              </div>
+
+              <hr style="border-color:rgba(255,255,255,.1); margin:12px 0;">
+
+              <!-- Comments (Full CRUD) -->
+              <div class="overlay-comments" id="overlayComments">
+                <h4>Comments</h4>
+                <div id="commentList"></div>
+                <form id="commentForm" style="margin-top:10px;">
+                  <textarea id="commentInput" placeholder="Write a comment..." rows="2" required
+                            style="width:100%; border-radius:8px; padding:8px;"></textarea>
+                  <button id="postBTN" type="submit" class="btn" style="margin-top:6px;">Post</button>
+                </form>
+              </div>
+              <!-- /Comments -->
+            </div>
+          </div>
+        </div>
+        <!-- /Overlay -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const grid           = document.getElementById('grid');
+      const overlay        = document.getElementById('overlay');
+      const overlayImg     = document.getElementById('overlay-img');
+      const overlayUser    = document.getElementById('overlay-username');
+      const overlayDesc    = document.getElementById('overlay-desc');
+      const overlayLikes   = document.getElementById('overlay-likes');
+      const likeButton     = document.getElementById('like-button');
+      const likeIcon       = likeButton.querySelector('i');
+      const likeText       = document.getElementById('like-text');
+      const logoutBtn      = document.getElementById('logoutBtn');
+
+      // Comments refs
+      const commentList    = document.getElementById('commentList');
+      const commentForm    = document.getElementById('commentForm');
+      const commentInput   = document.getElementById('commentInput');
+
+      let currentImageId = null;
+
+      /* ---------- Helpers ---------- */
+      const showError = (msg) => {
+        grid.innerHTML = `<p style="color:#ff5555; padding:8px 0;">${msg}</p>`;
+      };
+      function escapeHtml(s) {
+        return String(s ?? '')
+          .replaceAll('&','&amp;').replaceAll('<','&lt;')
+          .replaceAll('>','&gt;').replaceAll('"','&quot;')
+          .replaceAll("'",'&#39;');
+      }
+      async function ensureCurrentUserId() {
+        if (window.CURRENT_USER_ID) return window.CURRENT_USER_ID;
+        try {
+          const res = await fetch('/api/users/me', { credentials: 'include' });
+          if (!res.ok) return '';
+          const me = await res.json();
+          window.CURRENT_USER_ID = me._id || '';
+          return window.CURRENT_USER_ID;
+        } catch { return ''; }
+      }
+
+      /* ---------- Load liked images ---------- */
+      try {
+        const res = await fetch('/api/users/me/like', { credentials: 'include' });
+        if (res.status === 401) { window.location.href = '/login'; return; }
+
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'โหลดรูปที่ถูกใจไม่สำเร็จ');
+
+        grid.innerHTML = '';
+        if (!data.images || data.images.length === 0) {
+          grid.innerHTML = `<p style="text-align:center;">ยังไม่มีรูปที่กดถูกใจ</p>`;
+        } else {
+          data.images.forEach(img => {
+            const author = (img.authorName && String(img.authorName).trim()) || '';
+            const item = document.createElement('div');
+            item.classList.add('gallery-item');
+
+            /* ✅ เก็บชื่อไว้ใน data-author */
+            item.innerHTML = `
+              <img
+                src="${img.url}"
+                alt="${escapeHtml(img.originalName || 'image')}"
+                data-id="${img._id}"
+                data-desc="${escapeHtml(img.description || '')}"
+                data-author="${escapeHtml(author)}"
+              />
+            `;
+            grid.appendChild(item);
+          });
+        }
+
+        // เปิด overlay
+        grid.addEventListener('click', async (e) => {
+          const imgEl = e.target.closest('.gallery-item img');
+          if (!imgEl) return;
+
+          currentImageId          = imgEl.dataset.id;
+          overlayImg.src          = imgEl.src;
+          overlayDesc.textContent = imgEl.dataset.desc || "ไม่มีคำอธิบาย";
+
+          /* ✅ อ่านชื่อจาก data-author (ถ้าไม่มีให้ fallback เป็น User) */
+          const displayName = (imgEl.dataset.author || '').trim() || 'User';
+          overlayUser.textContent = '@' + displayName;
+
+          overlay.classList.add('is-open');
+
+          // โหลดจำนวนไลก์ + สถานะของเรา
+          try {
+            const likeRes  = await fetch(`/api/gallery/userlike/${currentImageId}`, { credentials: 'include' });
+            const likeData = await likeRes.json();
+            overlayLikes.textContent = `Like : ${likeData.countLikes ?? 0}`;
+            likeText.textContent = likeData.liked ? 'Unlike' : 'Like';
+            likeIcon.classList.toggle('liked', !!likeData.liked);
+          } catch {}
+
+          // โหลดคอมเมนต์
+          await ensureCurrentUserId();
+          await loadComments(currentImageId);
+        });
+
+        // ปิด overlay (คลิกมืด)
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.classList.remove('is-open');
+        });
+
+        // Toggle like
+        likeButton.addEventListener('click', async () => {
+          if (!currentImageId) return;
+
+          const res = await fetch(`/api/gallery/togglelike/${currentImageId}`, {
+            method: 'POST',
+            credentials: 'include'
+          });
+          const result = await res.json().catch(()=> ({}));
+          if (res.status === 401) { window.location.href = '/login'; return; }
+          if (!res.ok || !result.ok) { alert(result.message || 'ไม่สามารถกดถูกใจได้'); return; }
+
+          overlayLikes.textContent = `Like : ${result.countLikes}`;
+          likeText.textContent = result.liked ? 'Unlike' : 'Like';
+          likeIcon.classList.toggle('liked', !!result.liked);
+        });
+
+        // Logout
+        logoutBtn?.addEventListener('click', async (e) => {
+          e.preventDefault();
+          await fetch('/api/users/logout', { method: 'POST', credentials: 'include' }).catch(()=>{});
+          location.href = '/login';
+        });
+
+      } catch (err) {
+        console.error(err);
+        showError('โหลดรูปที่ถูกใจไม่สำเร็จ');
+      }
+
+      /* ---------- Comments (Full CRUD) ---------- */
+
+      // โหลดคอมเมนต์ทั้งหมดของรูป
+      async function loadComments(imageId) {
+        if (!commentList) return;
+        commentList.innerHTML = '<p>Loading comments...</p>';
+        try {
+          const res = await fetch(`/api/comments/${imageId}`, { credentials: 'include' });
+          if (res.status === 401) { commentList.innerHTML = '<p>Please login to view comments.</p>'; return; }
+          if (!res.ok) { commentList.innerHTML = '<p>Fail to load comments.</p>'; return; }
+
+          const data = await res.json();
+          const comments = data.comments || [];
+          if (!comments.length) {
+            commentList.innerHTML = '<p>No comments yet.</p>';
+            return;
+          }
+
+          commentList.innerHTML = comments.map(c => {
+            const ownerId = (c.userId && c.userId._id) ? String(c.userId._id) : String(c.userId || '');
+            const isOwner = ownerId && window.CURRENT_USER_ID && (ownerId === window.CURRENT_USER_ID);
+            return `
+              <div class="comment-item" data-id="${c._id}">
+                <div class="comment-body">
+                  <strong>@${escapeHtml(c.userId?.name || 'user')}</strong>:
+                  <span class="comment-text">${escapeHtml(c.text)}</span>
+                </div>
+                <div class="comment-actions" style="${isOwner ? '' : 'display:none'}">
+                  <button id = "editcomment" class="btn-ghost" data-action="edit"   data-id="${c._id}">Edit</button>
+                  <button class="btn-danger" data-action="delete" data-id="${c._id}">Delete</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        } catch (e) {
+          console.error(e);
+          commentList.innerHTML = '<p>Fail to load comments.</p>';
+        }
+      }
+
+      // โพสต์คอมเมนต์
+      commentForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentImageId) return;
+        const text = commentInput.value.trim();
+        if (!text) return;
+
+        try {
+          const res = await fetch(`/api/comments/${currentImageId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ text })
+          });
+          if (res.status === 401) { alert('Please login first.'); return; }
+          if (!res.ok) { alert('Fail to post comment'); return; }
+          commentInput.value = '';
+          await loadComments(currentImageId);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+
+      // Edit / Delete (delegation)
+      commentList?.addEventListener('click', async (e) => {
+        const btn    = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id     = btn.dataset.id;
+        const action = btn.dataset.action;
+
+        if (action === 'edit') {
+          const row    = btn.closest('.comment-item');
+          const textEl = row?.querySelector('.comment-text');
+          const curr   = textEl?.textContent || '';
+          const next   = prompt('Edit your comment:', curr);
+          if (next == null) return;
+          const newText = next.trim();
+          if (!newText) { alert("Comment can't be empty"); return; }
+
+          try {
+            const res = await fetch(`/api/comments/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ text: newText })
+            });
+            if (res.status === 401) { alert('Please login first.'); return; }
+            if (res.status === 403) { alert('You can only edit your own comment.'); return; }
+            if (!res.ok) { alert('Fail to update'); return; }
+            if (textEl) textEl.textContent = newText;
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        if (action === 'delete') {
+          if (!confirm('Delete this comment?')) return;
+          try {
+            const res = await fetch(`/api/comments/${id}`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            if (res.status === 401) { alert('Please login first.'); return; }
+            if (res.status === 403) { alert('You can only delete your own comment.'); return; }
+            if (!res.ok) { alert('Fail to delete'); return; }
+            btn.closest('.comment-item')?.remove();
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      });
+
+    });
+  </script>
+
+  <style>
+    .overlay-comments h4{ margin:6px 0 8px; }
+    .comment-item{
+      display:flex; align-items:center; gap:10px;
+      padding:6px 10px; margin-bottom:8px;
+      background:rgba(255,255,255,.06); border-radius:8px;
+    }
+    .comment-body{ flex:1; min-width:0; color:#ddd; }
+    .comment-text{ white-space:pre-wrap; }
+    .comment-actions{ margin-left:auto; display:flex; gap:8px; }
+    #editcomment{
+  background-color: #3b0be7;       
+  color: white;                  
+  border: none;                  
+  padding: 6px 14px;             
+  border-radius: 6px;            
+  cursor: pointer;               
+  transition: background-color 0.2s ease;
+  margin-top: 2px;
+  margin-right: auto;
+}
+
+#editcomment:hover {
+background-color: #1691e3;
+}
+    .btn-danger{ background:#e03131; border:1px solid #c33; color:#fff;
+      padding:4px 10px; border-radius:6px; cursor:pointer; }
+    @media (max-width:520px){
+      .comment-item{ flex-direction:column; align-items:flex-start; }
+      .comment-actions{ margin-left:0; }
+    }
+  </style>
+</body>
+</html>

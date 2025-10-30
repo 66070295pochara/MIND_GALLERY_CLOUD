@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Own Gallery | Mind Gallery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+  <style>
+    .profile-header{text-align:center;margin-top:10px}
+    .user-name{font-weight:700;cursor:pointer}
+    #aboutText{color:#ddd;opacity:.9;margin-top:6px}
+    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:20px}
+    .gallery-item img{width:100%;border-radius:12px;cursor:pointer;transition:0.2s}
+    .gallery-item img:hover{transform:scale(1.02)}
+    .overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:1000}
+    .overlay.is-open{display:flex}
+    .overlay-content{display:flex;flex-wrap:wrap;gap:20px;max-width:90%;max-height:90%;color:#fff}
+    .overlay-left img{max-width:480px;max-height:80vh;border-radius:10px}
+    .overlay-right{flex:1;min-width:300px;overflow-y:auto}
+    .addpic-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:1000}
+    .addpic-box{background:#222;padding:20px;border-radius:12px;color:#fff;width:min(500px,90vw)}
+    textarea,input{background:#111;color:#fff;border:1px solid #444;border-radius:8px}
+    .profile-modal{background:#222;padding:20px;border-radius:12px;color:#fff;width:min(500px,90vw)}
+  </style>
+</head>
+<body>
+  <main>
+    <aside class="left-sidebar">
+      <img src="/img/logo.png" class="logo" alt="Mind Gallery" />
+      <nav>
+        <a href="/gallery/my" class="active"><i class="fas fa-home"></i><span>Own Gallery</span></a>
+        <a href="/gallery/all"><i class="fas fa-globe"></i><span>All Gallery</span></a>
+        <a href="/gallery/fav"><i class="fas fa-heart"></i><span>Favorite</span></a>
+      </nav>
+      <a href="#" id="logoutBtn" class="logout"><i class="fas fa-sign-out"></i><span>Logout</span></a>
+    </aside>
+
+    <section class="main-feed">
+      <div class="gallery-container">
+        <div class="profile-header">
+          <p class="user-name" id="userName">@me</p>
+          <p id="aboutText">—</p>
+          <button class="add-pic-btn" id="addPicBtn">Add pic +</button>
+        </div>
+        <hr>
+        <div class="gallery-grid" id="grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-content">
+      <div class="overlay-left"><img id="overlayImg" alt="preview"></div>
+      <div class="overlay-right">
+        <h3 id="overlayUser">@user</h3>
+        <p id="overlayDesc"></p>
+        <label><input type="checkbox" id="publicToggle"> Public</label>
+        <div><input id="descInput" placeholder="Update description..."><button id="descSaveBtn">Save</button></div>
+        <p id="overlayLikes">Likes: 0</p>
+        <button id="deleteBtn" class="btn-danger">Delete</button>
+        <button id="closeBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add pic -->
+  <div class="addpic-overlay" id="addpicOverlay">
+    <div class="addpic-box">
+      <h3>Add Picture</h3>
+      <input type="file" id="addpicFile" accept="image/*"><br>
+      <textarea id="addpicDesc" rows="3" placeholder="Description..."></textarea><br>
+      <label><input type="checkbox" id="addpicPublic"> Public</label>
+      <div style="margin-top:10px"><button id="addpicSubmit">Add</button><button id="addpicCancel">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- Profile -->
+  <div class="overlay" id="profileOverlay">
+    <div class="profile-modal">
+      <h3 id="profName">@me</h3>
+      <p id="profEmail"></p>
+      <p id="profCreated"></p>
+      <hr>
+      <h4>About me</h4>
+      <textarea id="aboutInput" rows="3"></textarea>
+      <div><button id="aboutSaveBtn">Save</button><button id="profCloseBtn">Close</button></div>
+    </div>
+  </div>
+
+<script>
+const grid=document.getElementById('grid'),overlay=document.getElementById('overlay'),overlayImg=document.getElementById('overlayImg'),overlayUser=document.getElementById('overlayUser'),overlayDesc=document.getElementById('overlayDesc'),overlayLikes=document.getElementById('overlayLikes'),publicToggle=document.getElementById('publicToggle'),descInput=document.getElementById('descInput'),deleteBtn=document.getElementById('deleteBtn'),closeBtn=document.getElementById('closeBtn'),addpicOverlay=document.getElementById('addpicOverlay'),addPicBtn=document.getElementById('addPicBtn'),addpicCancel=document.getElementById('addpicCancel'),addpicSubmit=document.getElementById('addpicSubmit'),addpicFile=document.getElementById('addpicFile'),addpicDesc=document.getElementById('addpicDesc'),addpicPublic=document.getElementById('addpicPublic'),logoutBtn=document.getElementById('logoutBtn'),userName=document.getElementById('userName'),aboutText=document.getElementById('aboutText'),profileOverlay=document.getElementById('profileOverlay'),aboutInput=document.getElementById('aboutInput'),aboutSaveBtn=document.getElementById('aboutSaveBtn'),profCloseBtn=document.getElementById('profCloseBtn'),profName=document.getElementById('profName'),profEmail=document.getElementById('profEmail'),profCreated=document.getElementById('profCreated');let CURRENT_IMAGE=null;
+
+function imageUrl(img){const d=img.publicUrl||img.imageUrl||img.url||img.path;if(d)return d;if(img.s3Key)return `https://mind-gallery-bucket.s3.amazonaws.com/${img.s3Key}`;return'';}
+
+async function loadMe(){try{const r=await fetch('/api/me',{credentials:'include'});if(r.status===401)return location.href='/login';const me=await r.json();const name=me.username||me.name||me.displayName||'me';userName.textContent='@'+name;aboutText.textContent=(me.about||me.aboutMe||'—').trim();profName.textContent='@'+name;profEmail.textContent=me.email||'';profCreated.textContent='Joined: '+(me.createdAt?new Date(me.createdAt).toLocaleString():'');aboutInput.value=me.about||'';}catch(e){console.error(e)}}
+
+async function loadMyGallery(){grid.innerHTML='<p>Loading...</p>';const r=await fetch('/api/gallery/me',{credentials:'include'});if(r.status===401)return location.href='/login';const d=await r.json();const items=Array.isArray(d)?d:(d.items||d.images||[]);grid.innerHTML='';if(!items.length){grid.innerHTML='<p>No images yet.</p>';return;}for(const img of items){const src=imageUrl(img);const div=document.createElement('div');div.className='gallery-item';div.innerHTML=`<img src=\"${src}\" alt=\"${img.originalName||'img'}\">`;div.querySelector('img').onclick=()=>openOverlay(img);grid.appendChild(div);}}
+
+function likeCountOf(img){return typeof img.likeCount==='number'?img.likeCount:(Array.isArray(img.likes)?img.likes.length:0);}
+
+async function openOverlay(img){CURRENT_IMAGE=img;overlayImg.src=imageUrl(img);overlayUser.textContent='@'+(img.user?.name||img.authorName||'user');overlayDesc.textContent=img.description||'';descInput.value=img.description||'';publicToggle.checked=!!img.isPublic;overlayLikes.textContent='Likes: '+likeCountOf(img);overlay.classList.add('is-open');}
+closeBtn.onclick=()=>overlay.classList.remove('is-open');
+
+document.getElementById('descSaveBtn').onclick=async()=>{if(!CURRENT_IMAGE)return;const t=descInput.value.trim();const r=await fetch(`/api/gallery/${CURRENT_IMAGE.imageId}/description`,{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({description:t})});if(r.ok){overlayDesc.textContent=t;CURRENT_IMAGE.description=t;}};
+
+publicToggle.onchange=async()=>{if(!CURRENT_IMAGE)return;const n=!!publicToggle.checked;const r=await fetch(`/api/gallery/${CURRENT_IMAGE.imageId}/toggle-public`,{method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({isPublic:n})});if(!r.ok)publicToggle.checked=!n;};
+
+deleteBtn.onclick=async()=>{if(!CURRENT_IMAGE)return;if(!confirm('Delete this image?'))return;const r=await fetch(`/api/gallery/${CURRENT_IMAGE.imageId}`,{method:'DELETE',credentials:'include'});if(r.ok){overlay.classList.remove('is-open');await loadMyGallery();}};
+
+addPicBtn.onclick=()=>addpicOverlay.style.display='flex';addpicCancel.onclick=()=>addpicOverlay.style.display='none';
+addpicSubmit.onclick=async()=>{const f=addpicFile.files[0];if(!f)return alert('กรุณาเลือกไฟล์');const qs=new URLSearchParams({filename:f.name,filetype:f.type});const pres=await fetch(`/api/files/presign?${qs}`,{credentials:'include'});if(!pres.ok)return alert('presign fail');const {uploadUrl,key,headers}=await pres.json();const put=await fetch(uploadUrl,{method:'PUT',headers,body:f});if(!put.ok)return alert('upload fail');const meta={description:addpicDesc.value.trim(),isPublic:addpicPublic.checked,s3Key:key,originalName:f.name,contentType:f.type,size:f.size};const save=await fetch('/api/gallery',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(meta)});if(!save.ok)return alert('save fail');addpicOverlay.style.display='none';addpicFile.value='';addpicDesc.value='';addpicPublic.checked=false;await loadMyGallery();};
+
+userName.onclick=()=>profileOverlay.style.display='flex';profCloseBtn.onclick=()=>profileOverlay.style.display='none';
+aboutSaveBtn.onclick=async()=>{const val=aboutInput.value.trim();const r=await fetch('/api/me/about',{method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({about:val})});if(r.ok){const u=await r.json();aboutText.textContent=u.about||'—';profileOverlay.style.display='none';}};
+
+logoutBtn.onclick=async e=>{e.preventDefault();await fetch('/api/auth/logout',{method:'POST',credentials:'include'});location.href='/login';};
+
+(async()=>{await loadMe();await loadMyGallery();})();
+</script>
+</body>
+</html>

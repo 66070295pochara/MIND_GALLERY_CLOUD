@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>All Gallery | Mind Gallery</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+
+  <!-- inject user id ให้ JS ใช้เทียบสิทธิ์เจ้าของคอมเมนต์ -->
+  <script>
+    window.CURRENT_USER_ID =
+      "<%= (typeof user !== 'undefined' && user && user._id) ? String(user._id) : '' %>";
+  </script>
+</head>
+<body>
+  <main>
+    <!-- sidebar -->
+    <aside class="left-sidebar">
+      <img src="/img/logo.png" class="logo" alt="Mind Gallery">
+
+      <nav>
+        <a href="/gallery/my">
+          <i class="fas fa-home"></i><span>Own Gallery</span>
+        </a>
+        <a href="/gallery/all" class="active">
+          <i class="fas fa-globe"></i><span>All Gallery</span>
+        </a>
+        <a href="/gallery/fav">
+          <i class="fas fa-heart"></i><span>Favorite</span>
+        </a>
+      </nav>
+
+      <a href="#" class="logout" id="logoutBtn">
+        <i class="fas fa-sign-out"></i><span>Logout</span>
+      </a>
+    </aside>
+
+    <!-- main -->
+    <section class="main-feed">
+      <div class="gallery-container">
+        <div class="profile-header">
+          <div><img src="/img/logo.png" class="headlogo" alt="Mind Gallery"></div>
+        </div>
+
+        <div class="gallery-grid" id="grid"></div>
+
+        <!-- overlay preview -->
+        <div class="overlay" id="overlay" aria-hidden="true">
+          <div class="overlay-content">
+            <div class="overlay-left">
+              <img src="" alt="Preview" id="overlayImg">
+            </div>
+
+            <div class="overlay-right">
+              <div class="overlay-info">
+                <h3 id="overlayUser">@user</h3>
+                <p id="overlayDesc" class="description"></p>
+
+                <div class="overlay-footer">
+                  <p id="overlayLikes">Like : 0</p>
+                  <a class="likebutt" id="overlayLikeBtn">
+                    <i class="fas fa-heart"></i>
+                    <span id="overlayLikeText">Like</span>
+                  </a>
+                </div>
+
+                <div style="margin-top:8px">
+                  <button id="overlayClose" class="btn">Close</button>
+                </div>
+
+                <!-- Comments -->
+                <div class="overlay-comments" id="overlayComments">
+                  <h4>Comments</h4>
+                  <div id="commentList"></div>
+                  <form id="commentForm" style="margin-top:10px;">
+                    <textarea id="commentInput" placeholder="Write a comment..." rows="2" required></textarea>
+                    <button id = "postBTN" type="submit" class="btn">Post</button>
+                  </form>
+                </div>
+                <!-- /Comments -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /overlay -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* ====== Logout ====== */
+    document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await fetch('/api/users/logout', { method: 'POST', credentials: 'include' });
+      } finally {
+        window.location.href = '/login';
+      }
+    });
+
+    /* ====== Helpers ====== */
+    function cacheBust(urlLike, stamp) {
+      if (!urlLike) return '';
+      const t = stamp ? new Date(stamp).getTime() : Date.now();
+      return urlLike + (urlLike.includes('?') ? '&' : '?') + 't=' + t;
+    }
+
+    function imageUrl(img) {
+      // handle populated userId object or plain string
+      const userId = (img.userId && typeof img.userId === 'object') ? img.userId._id : img.userId;
+      const stored  = img.storedName ? encodeURIComponent(img.storedName) : '';
+
+      const candidates = [
+        img.url,
+        img.path,
+        img.imageUrl,
+        img.fullPath,
+        img.secure_url,
+        (userId && stored) ? `/uploads/${userId}/${stored}` : null
+      ].filter(Boolean);
+
+      const base  = candidates[0] || '';
+      const stamp = img.updatedAt || img.createdAt;
+      return cacheBust(base, stamp);
+    }
+
+    function likeCountOf(img) {
+      return Array.isArray(img.likes) ? img.likes.length : (img.countLikes || 0);
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+
+    /* ====== Load public gallery ====== */
+    async function loadGallery() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '<p>Loading...</p>';
+
+      const res = await fetch('/api/gallery/public?_=' + Date.now(), { credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      if (!res.ok) { grid.innerHTML = '<p>โหลดรูปไม่สำเร็จ</p>'; return; }
+
+      const data  = await res.json();
+      const items = data.items || data.withUrls || [];
+      grid.innerHTML = '';
+
+      if (!Array.isArray(items) || items.length === 0) {
+        grid.innerHTML = '<p>No public images yet.</p>';
+        return;
+      }
+
+      items.forEach(img => {
+        const card = document.createElement('div');
+        card.className = 'gallery-item';
+        card.innerHTML = `<img src="${imageUrl(img)}" alt="${escapeHtml(img.originalName || 'image')}" data-id="${img._id}">`;
+        const tag = card.querySelector('img');
+        tag.onerror = () => { tag.alt = 'broken image'; tag.style.opacity = .4; };
+        tag.addEventListener('click', () => openOverlay(img));
+        grid.appendChild(card);
+      });
+    }
+
+    /* ====== Overlay & Like toggle ====== */
+    const overlay         = document.getElementById('overlay');
+    const overlayImg      = document.getElementById('overlayImg');
+    const overlayUser     = document.getElementById('overlayUser');
+    const overlayDesc     = document.getElementById('overlayDesc');
+    const overlayLikes    = document.getElementById('overlayLikes');
+    const overlayLikeBtn  = document.getElementById('overlayLikeBtn');
+    const overlayLikeTxt  = document.getElementById('overlayLikeText');
+    const overlayCloseBtn = document.getElementById('overlayClose');
+
+    let CURRENT_IMAGE = null;
+    let CURRENT_LIKED = false;
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('is-open');
+    });
+    overlayCloseBtn.addEventListener('click', () => overlay.classList.remove('is-open'));
+
+    async function checkMyLikeStatus(imageId) {
+      try {
+        const res = await fetch(`/api/gallery/userlike/${imageId}`, { credentials: 'include' });
+        if (!res.ok) { setLikeLabel(false); return; }
+        const info = await res.json();
+        if (typeof info.countLikes === 'number') {
+          overlayLikes.textContent = `Like : ${info.countLikes}`;
+        }
+        setLikeLabel(!!info.liked);
+      } catch {
+        setLikeLabel(false);
+      }
+    }
+
+    function setLikeLabel(isLiked) {
+      CURRENT_LIKED = isLiked;
+      overlayLikeTxt.textContent = isLiked ? 'Unlike' : 'Like';
+      overlayLikeBtn.classList.toggle('is-liked', isLiked);
+    }
+
+    overlayLikeBtn.addEventListener('click', async () => {
+      if (!CURRENT_IMAGE) return;
+      try {
+        const res = await fetch(`/api/gallery/togglelike/${CURRENT_IMAGE._id}`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        if (!res.ok) return;
+
+        const data = await res.json().catch(() => ({}));
+        if (typeof data.countLikes === 'number') {
+          overlayLikes.textContent = `Like : ${data.countLikes}`;
+        } else {
+          await checkMyLikeStatus(CURRENT_IMAGE._id);
+          return;
+        }
+        if (typeof data.liked === 'boolean') {
+          setLikeLabel(data.liked);
+        } else {
+          setLikeLabel(!CURRENT_LIKED);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    /* ====== Comments ====== */
+    const commentList  = document.getElementById('commentList');
+    const commentForm  = document.getElementById('commentForm');
+    const commentInput = document.getElementById('commentInput');
+
+    async function loadComments(imageId) {
+      commentList.innerHTML = '<p>Loading comments...</p>';
+      try {
+        const res = await fetch(`/api/comments/${imageId}`, { credentials: 'include' });
+        if (res.status === 401) { commentList.innerHTML = '<p>Please login to view comments.</p>'; return; }
+        if (!res.ok) {
+          const t = await res.text().catch(()=> '');
+          console.error('loadComments failed:', res.status, t);
+          commentList.innerHTML = '<p>Fail to load comments.</p>';
+          return;
+        }
+        const data = await res.json();
+        const comments = data.comments || [];
+        if (comments.length === 0) {
+          commentList.innerHTML = '<p>No comments yet.</p>';
+          return;
+        }
+
+        commentList.innerHTML = comments.map(c => {
+          const ownerId = (c.userId && c.userId._id) ? String(c.userId._id) : String(c.userId || '');
+          const isOwner = ownerId && window.CURRENT_USER_ID && (ownerId === window.CURRENT_USER_ID);
+          return `
+            <div class="comment-item" data-id="${c._id}">
+              <div class="comment-body">
+                <strong>@${escapeHtml(c.userId?.name || 'user')}</strong>:
+                <span class="comment-text">${escapeHtml(c.text)}</span>
+              </div>
+              ${isOwner ? `
+              <div class="comment-actions">
+                <button id = "editcomment" class="btn btn-ghost btn-edit"   data-action="edit"   data-id="${c._id}">Edit</button>
+                <button id = "deletecomment" class="btn btn-ghost btn-danger btn-delete" data-action="delete" data-id="${c._id}">Delete</button>
+              </div>` : ``}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error(err);
+        commentList.innerHTML = '<p>Fail to load comments.</p>';
+      }
+    }
+
+    // event delegation: edit/delete
+    commentList.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const commentId = btn.dataset.id;
+      if (!commentId) return;
+
+      if (action === 'edit') {
+        const item = btn.closest('.comment-item');
+        const textSpan = item?.querySelector('.comment-text');
+        const current = textSpan ? textSpan.textContent : '';
+        const nextText = prompt('Edit your comment:', current);
+        if (nextText == null) return;
+
+        const newText = nextText.trim();
+        if (!newText) { alert("Comment can't be empty"); return; }
+
+        try {
+          const res = await fetch(`/api/comments/${commentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ text: newText })
+          });
+          if (res.status === 401) { alert('Please login first.'); return; }
+          if (res.status === 403) { alert('You can only edit your own comment.'); return; }
+          if (!res.ok) {
+            const t = await res.text().catch(()=> '');
+            console.error('update failed:', res.status, t);
+            alert('Fail to update comment');
+            return;
+          }
+          if (textSpan) textSpan.textContent = newText;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      if (action === 'delete') {
+        if (!confirm('Delete this comment?')) return;
+        try {
+          const res = await fetch(`/api/comments/${commentId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (res.status === 401) { alert('Please login first.'); return; }
+          if (res.status === 403) { alert('You can only delete your own comment.'); return; }
+          if (!res.ok) {
+            const t = await res.text().catch(()=> '');
+            console.error('delete failed:', res.status, t);
+            alert('Fail to delete comment');
+            return;
+          }
+          btn.closest('.comment-item')?.remove();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+
+    // post new comment
+    commentForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = commentInput.value.trim();
+      if (!text || !CURRENT_IMAGE) return;
+
+      try {
+        const res = await fetch(`/api/comments/${CURRENT_IMAGE._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ text })
+        });
+        if (res.status === 401) { alert('Please login first.'); return; }
+        if (!res.ok) {
+          const t = await res.text().catch(()=> '');
+          console.error('post comment failed:', res.status, t);
+          return;
+        }
+        commentInput.value = '';
+        await loadComments(CURRENT_IMAGE._id);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // เปิด overlay (อัปเดตให้แสดงชื่อจาก authorName ก่อน)
+    async function openOverlay(img) {
+      CURRENT_IMAGE = img;
+      overlayImg.src = imageUrl(img);
+
+      const displayName =
+        (img.authorName && img.authorName.trim()) ||
+        img.user?.name ||
+        'user';
+
+      overlayUser.textContent = '@' + displayName;
+      overlayDesc.textContent = img.description || '';
+      overlayLikes.textContent = `Like : ${likeCountOf(img)}`;
+      overlay.classList.add('is-open');
+
+      await checkMyLikeStatus(img._id);
+      await loadComments(img._id);
+    }
+
+    /* ====== Start ====== */
+    (async function start() {
+      await loadGallery();
+    })();
+  </script>
+</body>
+</html>
