@@ -13,6 +13,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3, S3_BUCKET } from "../config/awsS3.js";
 import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { ScanCommand, BatchGetCommand } from "@aws-sdk/lib-dynamodb";
+
 /**
  * สร้างรูป (อัปโหลดเมทาดาต้เขา DynamoDB)
  * หมายเหตุ: การอัปโหลดไฟล์จริงให้ทำกับ S3 แยก แล้วส่ง s3Key มาทาง body
@@ -377,6 +379,51 @@ export const getLikeUser = async (req, res) => {
     res
       .status(500)
       .json({ message: "GET_LIKE_USER_FAILED", error: String(err) });
+  }
+};
+export const listLikedByMe = async (req, res) => {
+  try {
+    const userId = req.user?.userId || "u1";
+
+    // 1) หาแถว LIKE# ของฉันทั้งหมด
+    const scan = await ddbDoc.send(new ScanCommand({
+      TableName: DDB_TABLE,
+      FilterExpression: "begins_with(SK, :pref) AND userId = :me",
+      ExpressionAttributeValues: { ":pref": "LIKE#", ":me": userId },
+      ProjectionExpression: "PK, SK, imageId"
+    }));
+    const liked = scan.Items || [];
+    if (!liked.length) return res.json({ ok: true, items: [] });
+
+    // 2) ดึง METADATA ของภาพแต่ละอัน
+    const keys = liked.map(it => ({ PK: `IMG#${it.imageId}`, SK: "METADATA" }));
+    const r = await ddbDoc.send(new BatchGetCommand({
+      RequestItems: {
+        [DDB_TABLE]: { Keys: keys }
+      }
+    }));
+    const metas = (r.Responses?.[DDB_TABLE] || []).filter(Boolean);
+
+    // 3) enrich presigned URL
+    const items = await Promise.all(metas.map(async (it) => {
+      let imageUrl = null;
+      if (it.s3Key) {
+        const cmd = new GetObjectCommand({ Bucket: S3_BUCKET, Key: it.s3Key });
+        imageUrl = await getSignedUrl(s3, cmd, { expiresIn: 60 * 5 });
+      }
+      return {
+        imageId: it.imageId,
+        ownerId: it.ownerId,
+        description: it.description || "",
+        title: it.title || "",
+        imageUrl
+      };
+    }));
+
+    res.json({ ok: true, items });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: "LIST_LIKED_FAILED", error: String(err) });
   }
 };
 

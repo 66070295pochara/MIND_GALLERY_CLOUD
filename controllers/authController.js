@@ -96,7 +96,11 @@ export async function login(req, res) {
     // jti สำหรับ revoke ทีหลัง
     const jti = crypto.randomUUID();
     const access = jwt.sign(
-      { userId: user.userId, username: user.username, role: user.role || "user", jti },
+      { userId: user.userId,
+    username: user.username,
+    name: user.name,          // ✅ เพิ่มบรรทัดนี้
+    role: user.role || "user",
+    jti},
       process.env.JWT_SECRET,
       { expiresIn: ACCESS_TTL }
     );

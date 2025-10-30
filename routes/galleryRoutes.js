@@ -10,6 +10,7 @@ import {
   deleteImage,
   toggleLike,
   getLikeUser,
+  listLikedByMe,
 } from "../controllers/galleryController.js";
 
 const r = Router();
@@ -37,5 +38,7 @@ r.post("/:imageId/like", requireAuth, toggleLike);
 
 // รายชื่อคนกดไลก์
 r.get("/:imageId/likes", getLikeUser);
+
+r.get("/liked", requireAuth, listLikedByMe);
 
 export default r;

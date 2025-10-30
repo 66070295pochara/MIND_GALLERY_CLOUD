@@ -9,10 +9,10 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
 </head>
 <body>
-  <!-- ถ้าเรนเดอร์ด้วย EJS จะได้ user id มาด้วย (ไม่มีก็เป็นค่าว่าง) -->
+  <!-- inject user id (จาก EJS) -->
   <script>
     window.CURRENT_USER_ID =
-      "<%= (typeof user !== 'undefined' && user && user._id) ? String(user._id) : '' %>";
+      "<%= (typeof user !== 'undefined' && user && (user._id || user.id)) ? String(user._id || user.id) : '' %>";
   </script>
 
   <main>
@@ -56,7 +56,7 @@
 
               <hr style="border-color:rgba(255,255,255,.1); margin:12px 0;">
 
-              <!-- Comments (Full CRUD) -->
+              <!-- Comments -->
               <div class="overlay-comments" id="overlayComments">
                 <h4>Comments</h4>
                 <div id="commentList"></div>
@@ -94,51 +94,58 @@
       const commentInput   = document.getElementById('commentInput');
 
       let currentImageId = null;
+      let currentImageOwner = '';
+      let currentImageDesc  = '';
 
       /* ---------- Helpers ---------- */
-      const showError = (msg) => {
-        grid.innerHTML = `<p style="color:#ff5555; padding:8px 0;">${msg}</p>`;
-      };
       function escapeHtml(s) {
         return String(s ?? '')
           .replaceAll('&','&amp;').replaceAll('<','&lt;')
           .replaceAll('>','&gt;').replaceAll('"','&quot;')
           .replaceAll("'",'&#39;');
       }
+
       async function ensureCurrentUserId() {
         if (window.CURRENT_USER_ID) return window.CURRENT_USER_ID;
         try {
-          const res = await fetch('/api/users/me', { credentials: 'include' });
+          const res = await fetch('/api/me', { credentials: 'include' });
           if (!res.ok) return '';
           const me = await res.json();
-          window.CURRENT_USER_ID = me._id || '';
+          window.CURRENT_USER_ID = me.userId || me._id || '';
           return window.CURRENT_USER_ID;
         } catch { return ''; }
       }
 
-      /* ---------- Load liked images ---------- */
+      function parseCommentKey(sk) {
+        const s = String(sk || '');
+        const parts = s.split('#');
+        if (parts.length >= 3) return { ts: parts[1], commentId: parts[2] };
+        const maybe = s.replace(/^COMMENT#/, '');
+        const m = maybe.match(/^(\d{10,13})-(.+)$/);
+        if (m) return { ts: m[1], commentId: maybe };
+        return { ts: null, commentId: null };
+      }
+
+      /* ---------- Load favorite gallery ---------- */
       try {
-        const res = await fetch('/api/users/me/like', { credentials: 'include' });
+        const res = await fetch('/api/gallery/liked', { credentials: 'include' });
         if (res.status === 401) { window.location.href = '/login'; return; }
 
         const data = await res.json();
-        if (!data.ok) throw new Error(data.message || 'โหลดรูปที่ถูกใจไม่สำเร็จ');
-
         grid.innerHTML = '';
-        if (!data.images || data.images.length === 0) {
+
+        if (!data.items || data.items.length === 0) {
           grid.innerHTML = `<p style="text-align:center;">ยังไม่มีรูปที่กดถูกใจ</p>`;
         } else {
-          data.images.forEach(img => {
-            const author = (img.authorName && String(img.authorName).trim()) || '';
+          data.items.forEach(img => {
             const item = document.createElement('div');
             item.classList.add('gallery-item');
-
-            /* ✅ เก็บชื่อไว้ใน data-author */
+            const author = (img.authorName && String(img.authorName).trim()) || (img.ownerId || 'User');
             item.innerHTML = `
               <img
-                src="${img.url}"
-                alt="${escapeHtml(img.originalName || 'image')}"
-                data-id="${img._id}"
+                src="${img.imageUrl || img.url}"
+                alt="${escapeHtml(img.title || img.originalName || 'image')}"
+                data-id="${img.imageId || img._id}"
                 data-desc="${escapeHtml(img.description || '')}"
                 data-author="${escapeHtml(author)}"
               />
@@ -147,45 +154,54 @@
           });
         }
 
-        // เปิด overlay
+        // เปิด overlay เมื่อคลิกรูป
         grid.addEventListener('click', async (e) => {
           const imgEl = e.target.closest('.gallery-item img');
           if (!imgEl) return;
 
-          currentImageId          = imgEl.dataset.id;
+          currentImageId   = imgEl.dataset.id;
+          currentImageDesc = imgEl.dataset.desc || "ไม่มีคำอธิบาย";
+          currentImageOwner= (imgEl.dataset.author || '').trim() || 'User';
+
           overlayImg.src          = imgEl.src;
-          overlayDesc.textContent = imgEl.dataset.desc || "ไม่มีคำอธิบาย";
-
-          /* ✅ อ่านชื่อจาก data-author (ถ้าไม่มีให้ fallback เป็น User) */
-          const displayName = (imgEl.dataset.author || '').trim() || 'User';
-          overlayUser.textContent = '@' + displayName;
-
+          overlayDesc.textContent = currentImageDesc;
+          overlayUser.textContent = '@' + currentImageOwner;
           overlay.classList.add('is-open');
 
-          // โหลดจำนวนไลก์ + สถานะของเรา
-          try {
-            const likeRes  = await fetch(`/api/gallery/userlike/${currentImageId}`, { credentials: 'include' });
-            const likeData = await likeRes.json();
-            overlayLikes.textContent = `Like : ${likeData.countLikes ?? 0}`;
-            likeText.textContent = likeData.liked ? 'Unlike' : 'Like';
-            likeIcon.classList.toggle('liked', !!likeData.liked);
-          } catch {}
+          // โหลดสถานะ Like
+                try {
+          const likeRes = await fetch(`/api/gallery/${currentImageId}/likes`, { credentials: 'include' });
+          const likeData = await likeRes.json();
+          const count = likeData?.count ?? (likeData?.users?.length ?? 0);
+          
+          // ************************ แก้ไขที่นี่ ************************
+          // ใช้ .innerHTML เพื่อแสดงผลไอคอน Font Awesome
+          overlayLikes.innerHTML = `<i class="fas fa-heart"></i> : ${count}`; 
+          // ************************************************************
 
+          await ensureCurrentUserId();
+          const liked = Array.isArray(likeData?.users) && window.CURRENT_USER_ID
+              ? likeData.users.includes(window.CURRENT_USER_ID)
+              : false;
+          likeText.textContent = liked ? 'Unlike' : 'Like';
+          likeIcon.classList.toggle('liked', !!liked);
+      } catch (e) {
+          console.error("Error fetching likes:", e);
+      }
           // โหลดคอมเมนต์
           await ensureCurrentUserId();
           await loadComments(currentImageId);
         });
 
-        // ปิด overlay (คลิกมืด)
+        // ปิด overlay
         overlay.addEventListener('click', (e) => {
           if (e.target === overlay) overlay.classList.remove('is-open');
         });
 
-        // Toggle like
+        // Toggle Like
         likeButton.addEventListener('click', async () => {
           if (!currentImageId) return;
-
-          const res = await fetch(`/api/gallery/togglelike/${currentImageId}`, {
+          const res = await fetch(`/api/gallery/${currentImageId}/like`, {
             method: 'POST',
             credentials: 'include'
           });
@@ -193,54 +209,55 @@
           if (res.status === 401) { window.location.href = '/login'; return; }
           if (!res.ok || !result.ok) { alert(result.message || 'ไม่สามารถกดถูกใจได้'); return; }
 
-          overlayLikes.textContent = `Like : ${result.countLikes}`;
-          likeText.textContent = result.liked ? 'Unlike' : 'Like';
-          likeIcon.classList.toggle('liked', !!result.liked);
+          const liked = !!result.liked;
+          likeText.textContent = liked ? 'Unlike' : 'Like';
+          likeIcon.classList.toggle('liked', liked);
         });
 
         // Logout
         logoutBtn?.addEventListener('click', async (e) => {
           e.preventDefault();
-          await fetch('/api/users/logout', { method: 'POST', credentials: 'include' }).catch(()=>{});
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(()=>{});
           location.href = '/login';
         });
 
       } catch (err) {
         console.error(err);
-        showError('โหลดรูปที่ถูกใจไม่สำเร็จ');
+        grid.innerHTML = `<p style="color:#ff5555; text-align:center;">โหลดรายการที่ถูกใจไม่สำเร็จ</p>`;
       }
 
-      /* ---------- Comments (Full CRUD) ---------- */
-
-      // โหลดคอมเมนต์ทั้งหมดของรูป
+      /* ---------- Comments ---------- */
       async function loadComments(imageId) {
         if (!commentList) return;
         commentList.innerHTML = '<p>Loading comments...</p>';
         try {
-          const res = await fetch(`/api/comments/${imageId}`, { credentials: 'include' });
+          const res = await fetch(`/api/images/${imageId}/comments`, { credentials: 'include' });
           if (res.status === 401) { commentList.innerHTML = '<p>Please login to view comments.</p>'; return; }
           if (!res.ok) { commentList.innerHTML = '<p>Fail to load comments.</p>'; return; }
 
-          const data = await res.json();
-          const comments = data.comments || [];
-          if (!comments.length) {
+          const comments = await res.json();
+          if (!Array.isArray(comments) || !comments.length) {
             commentList.innerHTML = '<p>No comments yet.</p>';
             return;
           }
 
+          await ensureCurrentUserId();
           commentList.innerHTML = comments.map(c => {
-            const ownerId = (c.userId && c.userId._id) ? String(c.userId._id) : String(c.userId || '');
-            const isOwner = ownerId && window.CURRENT_USER_ID && (ownerId === window.CURRENT_USER_ID);
+            const { ts, commentId } = parseCommentKey(c.SK);
+            const ownerId   = String(c.authorId || c.userId || '');
+            const displayNm = c.authorName || c.userName || ownerId || 'user';
+            const isOwner   = ownerId && window.CURRENT_USER_ID && (ownerId === String(window.CURRENT_USER_ID));
             return `
-              <div class="comment-item" data-id="${c._id}">
+              <div class="comment-item" data-id="${escapeHtml(commentId || '')}" data-ts="${escapeHtml(ts || '')}">
                 <div class="comment-body">
-                  <strong>@${escapeHtml(c.userId?.name || 'user')}</strong>:
+                  <strong>@${escapeHtml(displayNm)}</strong>:
                   <span class="comment-text">${escapeHtml(c.text)}</span>
                 </div>
-                <div class="comment-actions" style="${isOwner ? '' : 'display:none'}">
-                  <button id = "editcomment" class="btn-ghost" data-action="edit"   data-id="${c._id}">Edit</button>
-                  <button class="btn-danger" data-action="delete" data-id="${c._id}">Delete</button>
-                </div>
+                ${isOwner ? `
+                <div class="comment-actions">
+                  <button id="editcomment" class="btn btn-ghost btn-edit" data-action="edit">Edit</button>
+                  <button id="deletecomment" class="btn btn-ghost btn-danger btn-delete" data-action="delete">Delete</button>
+                </div>` : ``}
               </div>
             `;
           }).join('');
@@ -250,7 +267,7 @@
         }
       }
 
-      // โพสต์คอมเมนต์
+      // Post Comment
       commentForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!currentImageId) return;
@@ -258,7 +275,7 @@
         if (!text) return;
 
         try {
-          const res = await fetch(`/api/comments/${currentImageId}`, {
+          const res = await fetch(`/api/images/${currentImageId}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -273,55 +290,50 @@
         }
       });
 
-      // Edit / Delete (delegation)
+      // Edit / Delete
       commentList?.addEventListener('click', async (e) => {
-        const btn    = e.target.closest('button[data-action]');
+        const btn = e.target.closest('button[data-action]');
         if (!btn) return;
-        const id     = btn.dataset.id;
+
+        const row = btn.closest('.comment-item');
+        const cid = row?.dataset.id;
+        const ts  = row?.dataset.ts;
+        if (!cid || !ts || !currentImageId) return;
+
         const action = btn.dataset.action;
 
         if (action === 'edit') {
-          const row    = btn.closest('.comment-item');
           const textEl = row?.querySelector('.comment-text');
-          const curr   = textEl?.textContent || '';
-          const next   = prompt('Edit your comment:', curr);
+          const curr = textEl?.textContent || '';
+          const next = prompt('Edit your comment:', curr);
           if (next == null) return;
           const newText = next.trim();
           if (!newText) { alert("Comment can't be empty"); return; }
 
-          try {
-            const res = await fetch(`/api/comments/${id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ text: newText })
-            });
-            if (res.status === 401) { alert('Please login first.'); return; }
-            if (res.status === 403) { alert('You can only edit your own comment.'); return; }
-            if (!res.ok) { alert('Fail to update'); return; }
-            if (textEl) textEl.textContent = newText;
-          } catch (e) {
-            console.error(e);
-          }
+          const res = await fetch(`/api/images/${currentImageId}/comments/${cid}?ts=${encodeURIComponent(ts)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ text: newText })
+          });
+          if (res.status === 401) { alert('Please login first.'); return; }
+          if (res.status === 403) { alert('You can only edit your own comment.'); return; }
+          if (!res.ok) { alert('Fail to update'); return; }
+          if (textEl) textEl.textContent = newText;
         }
 
         if (action === 'delete') {
           if (!confirm('Delete this comment?')) return;
-          try {
-            const res = await fetch(`/api/comments/${id}`, {
-              method: 'DELETE',
-              credentials: 'include'
-            });
-            if (res.status === 401) { alert('Please login first.'); return; }
-            if (res.status === 403) { alert('You can only delete your own comment.'); return; }
-            if (!res.ok) { alert('Fail to delete'); return; }
-            btn.closest('.comment-item')?.remove();
-          } catch (e) {
-            console.error(e);
-          }
+          const res = await fetch(`/api/images/${currentImageId}/comments/${cid}?ts=${encodeURIComponent(ts)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (res.status === 401) { alert('Please login first.'); return; }
+          if (res.status === 403) { alert('You can only delete your own comment.'); return; }
+          if (!res.ok) { alert('Fail to delete'); return; }
+          row?.remove();
         }
       });
-
     });
   </script>
 
@@ -335,23 +347,11 @@
     .comment-body{ flex:1; min-width:0; color:#ddd; }
     .comment-text{ white-space:pre-wrap; }
     .comment-actions{ margin-left:auto; display:flex; gap:8px; }
-    #editcomment{
-  background-color: #3b0be7;       
-  color: white;                  
-  border: none;                  
-  padding: 6px 14px;             
-  border-radius: 6px;            
-  cursor: pointer;               
-  transition: background-color 0.2s ease;
-  margin-top: 2px;
-  margin-right: auto;
-}
-
-#editcomment:hover {
-background-color: #1691e3;
-}
     .btn-danger{ background:#e03131; border:1px solid #c33; color:#fff;
       padding:4px 10px; border-radius:6px; cursor:pointer; }
+    .btn-ghost{ background:transparent; color:#fff; border:1px solid #888;
+      padding:4px 10px; border-radius:6px; cursor:pointer; }
+    .btn-ghost:hover{ background:rgba(255,255,255,.1); }
     @media (max-width:520px){
       .comment-item{ flex-direction:column; align-items:flex-start; }
       .comment-actions{ margin-left:0; }

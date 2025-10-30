@@ -14,64 +14,54 @@ import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 export const addComment = async (req, res) => {
   try {
     const { imageId } = req.params;
-    const authorId = req.user?.userId || "u1";
-    const commentId = crypto.randomUUID();
-    const ts = Date.now();
+    const userId   = req.user?.userId || "u1";
+    const userName = req.user?.name || req.user?.username || "User";
     const { text } = req.body;
 
-    if (!text || !text.trim()) {
-      return res.status(400).json({ message: "TEXT_REQUIRED" });
-    }
-    
-    
-      await ddbDoc.send(new TransactWriteCommand({
-        
+    const now = Date.now();
+    const shortId = Math.random().toString(36).slice(2, 8); // กันซ้ำเล็กน้อย
+    const commentId = `${now}-${shortId}`;
+
+    const commentItem = {
+      PK: `IMG#${imageId}`,
+      SK: `COMMENT#${now}#${commentId}`,   // ✅ ใส่ ts ลงใน SK
+      type: "COMMENT",
+      imageId,
+      commentId,
+      authorId: userId,                    // ✅ ใช้ชื่อ field ให้ตรงกับ update/delete
+      authorName: userName,                // ✅ เก็บชื่อที่จะแสดง
+      text,
+      createdAt: now,
+    };
+
+    await ddbDoc.send(new TransactWriteCommand({
       TransactItems: [
-        // 0) เช็กรูปว่ายังมีอยู่ (METADATA ต้องมี)
-     {
-        ConditionCheck: {
-          TableName: DDB_TABLE,
-          Key: { PK: `IMG#${imageId}`, SK: "METADATA" },
-          ConditionExpression: "attribute_exists(PK)"
-        }
-      },
         {
           Put: {
             TableName: DDB_TABLE,
-            Item: {
-              PK: `IMG#${imageId}`,
-              SK: `COMMENT#${ts}#${commentId}`,
-              commentId,
-              imageId,
-              authorId,
-              text: text.trim(),
-              createdAt: ts,
-            },
-            ConditionExpression: "attribute_not_exists(PK)",
+            Item: commentItem,
+            ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
           },
         },
         {
           Update: {
             TableName: DDB_TABLE,
             Key: { PK: `IMG#${imageId}`, SK: "METADATA" },
-            UpdateExpression:
-              "SET commentCount = if_not_exists(commentCount, :z) + :one",
-            ExpressionAttributeValues: { ":z": 0, ":one": 1 },
+            UpdateExpression: "ADD commentCount :one SET updatedAt = :now",
+            ConditionExpression: "attribute_exists(PK) AND attribute_exists(SK)",
+            ExpressionAttributeValues: { ":one": 1, ":now": now },
           },
         },
       ],
     }));
-
-    res.status(201).json({
-      ok: true,
-      comment: { commentId, imageId, authorId, text: text.trim(), createdAt: ts },
-    });
+    
+    res.json({ ok: true, commentId, authorName: userName });
+    console.log('req.user =', req.user);
   } catch (err) {
-    console.error(err);
+    console.error("ADD_COMMENT_FAILED", err);
     res.status(500).json({ message: "ADD_COMMENT_FAILED", error: String(err) });
   }
 };
-
 /** ดึงคอมเมนต์ทั้งหมดของรูป (ล่าสุดก่อน) */
 export const listComments = async (req, res) => {
   try {
