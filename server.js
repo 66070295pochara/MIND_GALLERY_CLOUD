@@ -52,3 +52,7 @@ app.get("/gallery/my",  requireAuth, (_req, res) => res.render("gallery/mind-gal
 app.listen(process.env.PORT || 3000, () => {
   console.log(`Server on http://localhost:${process.env.PORT || 3000}`);
 });
+// const PORT = process.env.PORT || 8080;
+// app.listen(PORT, () => {
+//   console.log(`Server on port ${PORT}`);
+// });
