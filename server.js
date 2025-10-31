@@ -41,7 +41,6 @@ app.use("/api", apiRouter);
 const requireAuth = (req, res, next) => (res.locals.user ? next() : res.redirect("/login"));
 app.get("/", (_req, res) => res.redirect("/login"));
 app.get("/login", (_req, res) => res.render("auth/login"));
-app.get("/register", (_req, res) => res.render("auth/register"));
 app.get("/gallery/all", requireAuth, (_req, res) => res.render("gallery/all-gallery"));
 app.get("/gallery/fav", requireAuth, (_req, res) => res.render("gallery/fav"));
 app.get("/gallery/my",  requireAuth, (_req, res) => res.render("gallery/mind-gallery",));
@@ -49,10 +48,10 @@ app.get("/gallery/my",  requireAuth, (_req, res) => res.render("gallery/mind-gal
 // // serve ไฟล์ที่อัปโหลดผ่านเซิร์ฟเวอร์ (ถ้ายังใช้โฟลเดอร์ local)
 // app.use("/uploads", express.static(path.resolve("uploads")));
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`Server on http://localhost:${process.env.PORT || 3000}`);
-});
-// const PORT = process.env.PORT || 8080;
-// app.listen(PORT, () => {
-//   console.log(`Server on port ${PORT}`);
+// app.listen(process.env.PORT || 3000, () => {
+//   console.log(`Server on http://localhost:${process.env.PORT || 3000}`);
 // });
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Server on port ${PORT}`);
+});
