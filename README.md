@@ -1,65 +1,47 @@
-#  Mind Gallery
+#  Mind Gallery Cloud
 
-Mind Gallery คือเว็ปแพลตฟอร์มสร้างขึ้นเพื่อแก้ปัญหาการจัดเก็บและเผยแพร่ผลงาน
-รูปภาพ โปรเจคนี้ช่วยให้ผู้ใช้สามารถอัปโหลดรูปภาพพร้อมกำหนดความเป็นส่วนตัว และสามารถชื่นชมผลงานต่างๆที่ผู้ใช้อื่นได้อัปโหลด และสามารถกดชื่นชอบรวมไปถึงแสดงความคิดเห็นต่อผลงานของกันและกันได้อย่างง่ายดาย เป็นการเปลี่ยนการจัดเก็บไฟล์แบบเดิมๆ ให้เป็นโอกาสในการแบ่งปันและสร้างสรรค์ผลงานต่างๆ
+Mind Gallery Cloud คือแพลตฟอร์มเว็บแอปพลิเคชันสำหรับจัดเก็บและเผยแพร่ผลงานรูปภาพ โดยโปรเจคนี้เป็นการนำระบบ 
 
-รันการทำงานฝั่งเซิร์ฟเวอร์ด้วย Node.js + Express + EJS และเก็บข้อมูลใน MongoDB
+### **Mind Gallery เดิมมาต่อยอดและยกระดับ** 
+
+ขึ้นสู่ระบบ Cloud Computing อย่างเต็มรูปแบบบนโครงข่ายของ AWS  เพื่อรองรับการจัดการไฟล์ภาพและข้อมูลที่มีประสิทธิภาพมากขึ้น
+(./preview_image/cloud.png)
 
 # Mind Gallery Preview
-### ตัวอย่างหน้าจอการใช้งาน (Screenshots)
+### วิดีโอสาธิตการใช้งาน (YouTube Demo)
+https://www.youtube.com/watch?v=umptcgdLv9w&feature=youtu.be
 
-### หน้า Login 
-![Login](./preview_image/login.png)
 
-### หน้า Register 
-![Register](./preview_image/register_preview.png)
 
-### หน้าหลัก
-![Home](./preview_image/home.png)
-
-![Full Image](./preview_image/fullimg.png)
-
-![Detail](./preview_image/detail.png)
+## 🌟 จุดเด่นของการต่อยอดโปรเจคนี้
+- **Cloud-Native Storage:** เปลี่ยนการเก็บไฟล์รูปภาพจากเซิร์ฟเวอร์แบบเดิมไปใช้ **Amazon S3** เพื่อความปลอดภัยและขยายพื้นที่จัดเก็บได้ไม่จำกัด
+- **NoSQL Cloud Database:** ย้ายระบบฐานข้อมูลมาใช้ **Amazon DynamoDB** ที่อยู่บน Private Subnet เพื่อความปลอดภัยของข้อมูลผู้ใช้งาน
+- **Automated Deployment:** ใช้ **AWS Elastic Beanstalk** ร่วมกับ **Amazon EC2** ในการจัดการและ Deploy เซิร์ฟเวอร์
+- **Security & Network:** มีการวางระบบ VPC, แบ่ง Public/Private Subnet และตั้งค่าสิทธิ์ผ่าน IAM
 
 ## ✨ Features
-- **Authentication:** ระบบ Login/Register รักษาความปลอดภัยด้วย JWT (`JWT_SECRET`)
-- **Gallery Visibility:** ผู้ใช้สามารถตั้งค่ารูปภาพเป็น Public (สาธารณะ) หรือ Private (ส่วนตัว) ได้
-- **Interactions:** ระบบ Like และ Comment (อนุญาตให้แก้ไข/ลบได้เฉพาะเจ้าของคอมเมนต์หรือรูปภาพเท่านั้น)
-- **SSR (Server-Side Rendering):** แสดงผลหน้าเว็บด้วย EJS 
+- **Authentication:** ระบบสมัครสมาชิก (Register) และเข้าสู่ระบบ (Login) เพื่อยืนยันตัวตนผู้ใช้งาน
+- **Cloud Storage & Management:** ระบบอัปโหลด ลบ และแก้ไขคำอธิบายรูปภาพ (Description) โดยไฟล์ภาพทั้งหมดจะถูกจัดเก็บอย่างปลอดภัยบน **Amazon S3**
+- **Privacy & Visibility:** ผู้ใช้งานสามารถกำหนดและปรับเปลี่ยนสถานะของรูปภาพแต่ละภาพให้เป็น Public (สาธารณะ) หรือ Private (ส่วนตัว) ได้
+- **Interactions:** ระบบกดถูกใจ (Like) และแสดงความคิดเห็น (Comment) ต่อผลงานรูปภาพ 
+- **Gallery Views:** การแสดงผลแกลเลอรีแบ่งออกเป็น 3 หน้าหลัก ได้แก่ Own Gallery (ผลงานส่วนตัว), All Gallery (ผลงานสาธารณะทั้งหมด) และ Favorite Gallery (รูปภาพที่เคยกดถูกใจไว้)
+- **SSR (Server-Side Rendering):** แสดงผลหน้าเว็บอย่างรวดเร็วด้วย EJS Template Engine
 
 ## 🧰 Tech Stack
-- **Server:** Node.js, Express.js, EJS
-- **Database:** MongoDB (Mongoose)
-- **Testing:** Jest
 
-## 🚀 เริ่มต้นใช้งาน (Getting Started)
+**Frontend & Server (Application Layer)**
+- Node.js & Express.js 
+- Template Engine: EJS 
+- Styling: CSS 
 
-### 1. ติดตั้ง Dependencies
-```bash
-npm install
-```
+**Cloud Infrastructure (AWS Services)**
+- AWS Elastic Beanstalk & Amazon EC2 (Compute) 
+- Amazon S3 (Object Storage) 
+- Amazon DynamoDB (NoSQL Database) 
+- AWS VPC, IAM, CloudWatch (Network, Security & Monitoring) 
 
-### 2. ตั้งค่า Environment Variables
-```bash
-ทำการคัดลอกไฟล์ .env.example แล้วเปลี่ยนชื่อเป็น .env
 
-แก้ไขค่าคอนฟิกต่างๆ ในไฟล์ .env (เช่น DB_URL, JWT_SECRET)
 
-ตัวอย่างไฟล์ .env:
-
-ข้อมูลโค้ด
-DB_URL=mongodb://localhost:27017/mind_gallery
-JWT_SECRET=your_super_secret_key
-```
-### 3. รันเซิร์ฟเวอร์
-```bash
-node server.js
-```
-
-### 4. รันเทสต์ (Automated Testing)
-```bash
-npm test
-```
 ## 📡 API Testing (Postman)
 
 โปรเจคนี้ได้จัดเตรียม API Documentation และ Collection ไว้สำหรับการทดสอบเรียบร้อยแล้ว โดยครอบคลุมระบบการทำงานหลักทั้งหมด (User, Gallery, Comment และ Like) s
@@ -70,7 +52,7 @@ npm test
 
 สามารถดูรายละเอียดของ Endpoint ต่างๆ รวมถึงรูปแบบ Request และตัวอย่าง Response 
 
- **[Mind Gallery API Documentation](https://documenter.getpostman.com/view/47036038/2sBXiomqCT)**
+ **[Mind Gallery Cloud API Documentation](https://documenter.getpostman.com/view/47036038/2sBXionA9N)**
 
 
 
