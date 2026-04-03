@@ -59,7 +59,7 @@ https://www.youtube.com/watch?v=umptcgdLv9w&feature=youtu.be
 
 ### Import ไฟล์ Collection สำหรับทดสอบในเครื่อง
 หากต้องการทดสอบยิง API ด้วยตัวเองผ่าน Localhost สามารถทำตามขั้นตอนต่อไปนี้:
-[Mind Gallery API.postman_collection.json](./postman/Mind%20Gallery%20API.postman_collection.json)
+[Mind Gallery API.postman_collection.json](./postman/cloud.postman_collection.json)
 ```bash
 1. ไปที่โฟลเดอร์ `postman/` ภายในโปรเจคนี้
 ```
