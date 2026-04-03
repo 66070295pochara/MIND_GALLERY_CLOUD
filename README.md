@@ -69,3 +69,25 @@ https://www.youtube.com/watch?v=umptcgdLv9w&feature=youtu.be
 ```bash
 3. เริ่มต้นทดสอบ API ต่างๆ ในระบบได้ทันที
 ```
+
+
+## 💰 AWS Infrastructure Cost Estimate
+![Price](./preview_image/price.png)
+
+โปรเจคนี้ได้มีการประเมินค่าใช้จ่ายในการวางระบบสถาปัตยกรรมบน AWS (อ้างอิงจาก AWS Pricing Calculator) สำหรับการวางแผนสเกลระบบเพื่อใช้งานจริง โดยมีรายละเอียดดังนี้:
+
+**สรุปค่าใช้จ่าย (Estimate Summary):**
+* **Upfront cost (ค่าใช้จ่ายล่วงหน้า):** $180.00 USD
+* **Monthly cost (ค่าใช้จ่ายรายเดือน):** $23.30 USD
+* **Total 12 months cost (รวม 1 ปี):** $459.60 USD
+
+**รายละเอียดแต่ละ Service (Region: US East - N. Virginia):**
+
+| AWS Service | Configuration Summary | Upfront Cost | Monthly Cost |
+| :--- | :--- | :--- | :--- |
+| **Amazon EC2** | t2.micro (Linux), 30 GB EBS Storage, Compute Savings Plans 1yr | $0.00 | $10.66 |
+| **Amazon DynamoDB** | Table class: Standard, 5 GB Data storage, 1 yr Reserved Capacity | $180.00 | $12.41 |
+| **Amazon S3** | 5 GB Standard Storage | $0.00 | $0.23 |
+
+
+*(หมายเหตุ: เป็นเพียงการประมาณการค่าใช้จ่ายเบื้องต้น ไม่รวมภาษีที่อาจเกิดขึ้น)*
