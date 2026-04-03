@@ -72,7 +72,7 @@ https://www.youtube.com/watch?v=umptcgdLv9w&feature=youtu.be
 
 
 ## 💰 AWS Infrastructure Cost Estimate
-
+![cloud art](preview_image/price.png)
 
 โปรเจคนี้ได้มีการประเมินค่าใช้จ่ายในการวางระบบสถาปัตยกรรมบน AWS (อ้างอิงจาก AWS Pricing Calculator) สำหรับการวางแผนสเกลระบบเพื่อใช้งานจริง โดยมีรายละเอียดดังนี้:
 
