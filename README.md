@@ -5,7 +5,8 @@ Mind Gallery Cloud คือแพลตฟอร์มเว็บแอปพ�
 ### **Mind Gallery เดิมมาต่อยอดและยกระดับ** 
 
 ขึ้นสู่ระบบ Cloud Computing อย่างเต็มรูปแบบบนโครงข่ายของ AWS  เพื่อรองรับการจัดการไฟล์ภาพและข้อมูลที่มีประสิทธิภาพมากขึ้น
-(./preview_image/cloud.png)
+
+![cloud architecture](./preview_image/cloud.png)
 
 # Mind Gallery Preview
 ### วิดีโอสาธิตการใช้งาน (YouTube Demo)
